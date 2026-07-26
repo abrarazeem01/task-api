@@ -1,2 +1,4 @@
-__pycache__/ 
-venv/ 
+venv/
+__pycache__/
+*.pyc
+tasks.db

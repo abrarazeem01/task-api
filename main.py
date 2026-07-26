@@ -1,21 +1,48 @@
 from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel
+import sqlite3
 from typing import Optional
 
-app = FastAPI(
-    title="Task API",
-    version="1.0",
-    description="W2 A1 CRUD API Assignment"
-)
+app = FastAPI()
 
-# --- STAGE 2: IN-MEMORY DATABASE ---
-tasks_db = [
-    {"id": 1, "title": "Buy groceries", "done": False},
-    {"id": 2, "title": "Complete W2 Assignment", "done": True},
-    {"id": 3, "title": "Read FastAPI Documentation", "done": False},
-]
+def get_db():
+    conn = sqlite3.connect("tasks.db")
+    conn.row_factory = sqlite3.Row  # Returns dict-like rows
+    return conn
 
-# Task Models
+# ==========================================
+# STAGE 0: Create & Initialize Database
+# ==========================================
+def init_db():
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS tasks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            done BOOLEAN NOT NULL DEFAULT 0
+        )
+    """)
+    conn.commit()
+
+    # Seed 3 example tasks if empty
+    cursor.execute("SELECT COUNT(*) as count FROM tasks")
+    if cursor.fetchone()["count"] == 0:
+        cursor.executemany(
+            "INSERT INTO tasks (title, done) VALUES (?, ?)",
+            [
+                ("Buy milk", 0),
+                ("Complete Python assignment", 0),
+                ("Review SQL queries", 1)
+            ]
+        )
+        conn.commit()
+    conn.close()
+
+# Run DB initialization on startup
+init_db()
+
+# Pydantic models for validation
 class TaskCreate(BaseModel):
     title: str
 
@@ -23,89 +50,76 @@ class TaskUpdate(BaseModel):
     title: Optional[str] = None
     done: Optional[bool] = None
 
-# --- STAGE 1: ROOT & HEALTH ENDPOINTS ---
-@app.get("/")
-def get_root():
-    """API description endpoint"""
-    return {
-        "name": "Task API",
-        "version": "1.0",
-        "endpoints": ["/tasks"]
-    }
+# Helper to format row
+def format_task(row):
+    return {"id": row["id"], "title": row["title"], "done": bool(row["done"])}
 
-@app.get("/health")
-def get_health():
-    """Healthcheck endpoint for monitoring server status"""
-    return {"status": "ok"}
-
-# --- STAGE 2: READ ENDPOINTS ---
+# ==========================================
+# STAGE 1: Read Endpoints (GET)
+# ==========================================
 @app.get("/tasks")
-def get_all_tasks():
-    """Returns the full list of tasks"""
-    return tasks_db
+def get_tasks():
+    conn = get_db()
+    rows = conn.execute("SELECT * FROM tasks").fetchall()
+    conn.close()
+    return [format_task(r) for r in rows]
 
 @app.get("/tasks/{task_id}")
-def get_single_task(task_id: int):
-    """Returns a single task by ID or 404 error"""
-    for task in tasks_db:
-        if task["id"] == task_id:
-            return task
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail=f"Task {task_id} not found"
-    )
+def get_task(task_id: int):
+    conn = get_db()
+    row = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
+    conn.close()
+    if not row:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return format_task(row)
 
-# --- STAGE 3: CREATE ENDPOINT ---
+# ==========================================
+# STAGE 2: Create Endpoint (POST)
+# ==========================================
 @app.post("/tasks", status_code=status.HTTP_201_CREATED)
 def create_task(task: TaskCreate):
-    """Creates a new task with validation"""
     if not task.title or task.title.strip() == "":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Title cannot be empty"
-        )
+        raise HTTPException(status_code=400, detail="Title is required")
     
-    # Calculate next free ID
-    next_id = max([t["id"] for t in tasks_db], default=0) + 1
-    new_task = {
-        "id": next_id,
-        "title": task.title,
-        "done": False
-    }
-    tasks_db.append(new_task)
-    return new_task
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO tasks (title, done) VALUES (?, ?)", (task.title, 0))
+    conn.commit()
+    new_id = cursor.lastrowid
+    
+    row = conn.execute("SELECT * FROM tasks WHERE id = ?", (new_id,)).fetchone()
+    conn.close()
+    return format_task(row)
 
-# --- STAGE 4: UPDATE & DELETE ENDPOINTS ---
+# ==========================================
+# STAGE 3: Update & Delete Endpoints (PUT & DELETE)
+# ==========================================
 @app.put("/tasks/{task_id}")
-def update_task(task_id: int, task_update: TaskUpdate):
-    """Updates a task's title and/or done status"""
-    for task in tasks_db:
-        if task["id"] == task_id:
-            if task_update.title is not None:
-                if task_update.title.strip() == "":
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="Title cannot be empty"
-                    )
-                task["title"] = task_update.title
-            if task_update.done is not None:
-                task["done"] = task_update.done
-            return task
+def update_task(task_id: int, task: TaskUpdate):
+    conn = get_db()
+    existing = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
+    if not existing:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Task not found")
 
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail=f"Task {task_id} not found"
-    )
+    new_title = task.title if task.title is not None else existing["title"]
+    new_done = int(task.done) if task.done is not None else existing["done"]
+
+    conn.execute("UPDATE tasks SET title = ?, done = ? WHERE id = ?", (new_title, new_done, task_id))
+    conn.commit()
+
+    updated = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
+    conn.close()
+    return format_task(updated)
 
 @app.delete("/tasks/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_task(task_id: int):
-    """Deletes a task by ID"""
-    for index, task in enumerate(tasks_db):
-        if task["id"] == task_id:
-            tasks_db.pop(index)
-            return
-            
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail=f"Task {task_id} not found"
-    )
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
+    conn.commit()
+    if cursor.rowcount == 0:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Task not found")
+    conn.close()
+    return None
