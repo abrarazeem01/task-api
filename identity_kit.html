@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Identity Kit</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    /* Style Variables */
+    :root {
+      --font-heading: 'Cinzel', Georgia, serif;
+      --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+
+      --color-main: #1F2937;
+      --color-text: #111827;
+      --color-bg: #F9FAFB;
+      --color-accent: #4B7B6E;
+      --color-border: #E5E7EB;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-body);
+      color: var(--color-text);
+      background-color: var(--color-bg);
+      line-height: 1.6;
+      padding: 3rem 1.5rem;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: #FFFFFF;
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      padding: 2.5rem;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+
+    header {
+      border-bottom: 2px solid var(--color-main);
+      padding-bottom: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    h1, h2, h3 {
+      font-family: var(--font-heading);
+      color: var(--color-main);
+    }
+
+    h1 {
+      font-size: 2.25rem;
+      letter-spacing: -0.02em;
+    }
+
+    h2 {
+      font-size: 1.25rem;
+      margin-bottom: 1rem;
+      border-left: 4px solid var(--color-accent);
+      padding-left: 0.5rem;
+    }
+
+    section {
+      margin-bottom: 2.5rem;
+    }
+
+    /* Grid Layouts */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .card {
+      border: 1px solid var(--color-border);
+      padding: 1.25rem;
+      border-radius: 6px;
+      background-color: var(--color-bg);
+    }
+
+    /* Palette Swatches */
+    .palette-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 1rem;
+    }
+
+    .swatch {
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      overflow: hidden;
+      background: #FFFFFF;
+    }
+
+    .swatch-color {
+      height: 70px;
+      width: 100%;
+    }
+
+    .swatch-info {
+      padding: 0.75rem;
+      font-size: 0.875rem;
+    }
+
+    .swatch-name {
+      font-weight: 600;
+      color: var(--color-text);
+    }
+
+    .swatch-hex {
+      font-family: monospace;
+      color: #6B7280;
+    }
+
+    /* Logo & Favicon Displays */
+    .brand-display {
+      display: flex;
+      align-items: center;
+      gap: 2rem;
+      flex-wrap: wrap;
+    }
+
+    .logo-sample {
+      font-family: var(--font-heading);
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: var(--color-main);
+      letter-spacing: 0.05em;
+    }
+
+    .favicon-sample {
+      width: 64px;
+      height: 64px;
+      background-color: var(--color-main);
+      color: var(--color-bg);
+      font-family: var(--font-heading);
+      font-size: 2rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+    }
+
+    /* Style Note Block */
+    .style-note {
+      background-color: var(--color-bg);
+      border: 1px solid var(--color-border);
+      border-left: 4px solid var(--color-main);
+      padding: 1.25rem;
+      border-radius: 4px;
+    }
+
+    .style-note p {
+      font-size: 0.95rem;
+      color: var(--color-text);
+      margin-bottom: 0.5rem;
+    }
+
+    .style-note p:last-child {
+      margin-bottom: 0;
+    }
+
+    code {
+      background-color: #E5E7EB;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.875rem;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+
+  <main class="container">
+    <header>
+      <h1>Identity Kit</h1>
+    </header>
+
+    <!-- 1. Fonts -->
+    <section>
+      <h2>1. Typography</h2>
+      <div class="grid-2">
+        <div class="card">
+          <p style="font-size: 0.85rem; color: #6B7280; margin-bottom: 0.25rem;">Heading Font</p>
+          <h3 style="font-size: 1.5rem;">Cinzel</h3>
+          <p style="font-family: var(--font-heading); margin-top: 0.5rem;">Aa Bb Cc 123</p>
+        </div>
+        <div class="card">
+          <p style="font-size: 0.85rem; color: #6B7280; margin-bottom: 0.25rem;">Body Font</p>
+          <h3 style="font-family: var(--font-body); font-size: 1.5rem;">Inter</h3>
+          <p style="font-family: var(--font-body); margin-top: 0.5rem;">Aa Bb Cc 123</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. Palette -->
+    <section>
+      <h2>2. Color Palette</h2>
+      <div class="palette-grid">
+        <div class="swatch">
+          <div class="swatch-color" style="background-color: #1F2937;"></div>
+          <div class="swatch-info">
+            <div class="swatch-name">Main Color</div>
+            <div class="swatch-hex">#1F2937</div>
+          </div>
+        </div>
+        <div class="swatch">
+          <div class="swatch-color" style="background-color: #111827;"></div>
+          <div class="swatch-info">
+            <div class="swatch-name">Near-Black Text</div>
+            <div class="swatch-hex">#111827</div>
+          </div>
+        </div>
+        <div class="swatch">
+          <div class="swatch-color" style="background-color: #F9FAFB; border-bottom: 1px solid var(--color-border);"></div>
+          <div class="swatch-info">
+            <div class="swatch-name">Near-White BG</div>
+            <div class="swatch-hex">#F9FAFB</div>
+          </div>
+        </div>
+        <div class="swatch">
+          <div class="swatch-color" style="background-color: #4B7B6E;"></div>
+          <div class="swatch-info">
+            <div class="swatch-name">Accent Color</div>
+            <div class="swatch-hex">#4B7B6E</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Logo & Favicon -->
+    <section>
+      <h2>3. Logo &amp; Favicon</h2>
+      <div class="card brand-display">
+        <div>
+          <p style="font-size: 0.85rem; color: #6B7280; margin-bottom: 0.5rem;">Heading Monogram</p>
+          <div class="logo-sample">A</div>
+        </div>
+        <div style="border-left: 1px solid var(--color-border); padding-left: 2rem;">
+          <p style="font-size: 0.85rem; color: #6B7280; margin-bottom: 0.5rem;">Favicon Tile (64x64)</p>
+          <div class="favicon-sample">A</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. Two-Line Style Note -->
+    <section>
+      <h2>4. Two-Line Style Note</h2>
+      <div class="style-note">
+        <p><strong>Fonts:</strong> <code>Cinzel</code> (Headings) &amp; <code>Inter</code> (Body). <strong>Palette:</strong> Main <code>#1F2937</code>, Text <code>#111827</code>, BG <code>#F9FAFB</code>, Accent <code>#4B7B6E</code>.</p>
+        <p><strong>Mood:</strong> Modern, calm, and distraction-free—designed to step back and let the work take center stage.</p>
+      </div>
+    </section>
+  </main>
+
+</body>
+</html>
