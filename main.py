@@ -1,14 +1,28 @@
+import os
+import time
+from typing import Optional
 from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel
-import sqlite3
-from typing import Optional
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 app = FastAPI()
 
+# Get connection string from environment variable set in docker-compose.yml
+DATABASE_URL = os.getenv("DATABASE_URL", "postgres://app_user:app_password@db:5432/app_db")
+
 def get_db():
-    conn = sqlite3.connect("tasks.db")
-    conn.row_factory = sqlite3.Row  # Returns dict-like rows
-    return conn
+    # Retry connection in case Postgres is still starting up
+    retries = 5
+    while retries > 0:
+        try:
+            conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+            return conn
+        except psycopg2.OperationalError as e:
+            retries -= 1
+            if retries == 0:
+                raise e
+            time.sleep(1)
 
 # ==========================================
 # STAGE 0: Create & Initialize Database
@@ -16,31 +30,38 @@ def get_db():
 def init_db():
     conn = get_db()
     cursor = conn.cursor()
+    
+    # Create tasks table in Postgres
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS tasks (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             title TEXT NOT NULL,
-            done BOOLEAN NOT NULL DEFAULT 0
+            done BOOLEAN NOT NULL DEFAULT FALSE
         )
     """)
     conn.commit()
 
-    # Seed 3 example tasks if empty
-    cursor.execute("SELECT COUNT(*) as count FROM tasks")
-    if cursor.fetchone()["count"] == 0:
+    # Seed initial tasks if empty
+    cursor.execute("SELECT COUNT(*) as count FROM tasks;")
+    result = cursor.fetchone()
+    if result["count"] == 0:
         cursor.executemany(
-            "INSERT INTO tasks (title, done) VALUES (?, ?)",
+            "INSERT INTO tasks (title, done) VALUES (%s, %s);",
             [
-                ("Buy milk", 0),
-                ("Complete Python assignment", 0),
-                ("Review SQL queries", 1)
+                ("Buy milk", False),
+                ("Complete Python assignment", False),
+                ("Review SQL queries", True)
             ]
         )
         conn.commit()
+    
+    cursor.close()
     conn.close()
 
-# Run DB initialization on startup
-init_db()
+# Initialize table structure on app startup
+@app.on_event("startup")
+def startup_event():
+    init_db()
 
 # Pydantic models for validation
 class TaskCreate(BaseModel):
@@ -60,14 +81,20 @@ def format_task(row):
 @app.get("/tasks")
 def get_tasks():
     conn = get_db()
-    rows = conn.execute("SELECT * FROM tasks").fetchall()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM tasks ORDER BY id ASC;")
+    rows = cursor.fetchall()
+    cursor.close()
     conn.close()
     return [format_task(r) for r in rows]
 
 @app.get("/tasks/{task_id}")
 def get_task(task_id: int):
     conn = get_db()
-    row = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM tasks WHERE id = %s;", (task_id,))
+    row = cursor.fetchone()
+    cursor.close()
     conn.close()
     if not row:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -83,13 +110,15 @@ def create_task(task: TaskCreate):
     
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO tasks (title, done) VALUES (?, ?)", (task.title, 0))
+    cursor.execute(
+        "INSERT INTO tasks (title, done) VALUES (%s, %s) RETURNING *;", 
+        (task.title, False)
+    )
+    new_row = cursor.fetchone()
     conn.commit()
-    new_id = cursor.lastrowid
-    
-    row = conn.execute("SELECT * FROM tasks WHERE id = ?", (new_id,)).fetchone()
+    cursor.close()
     conn.close()
-    return format_task(row)
+    return format_task(new_row)
 
 # ==========================================
 # STAGE 3: Update & Delete Endpoints (PUT & DELETE)
@@ -97,29 +126,40 @@ def create_task(task: TaskCreate):
 @app.put("/tasks/{task_id}")
 def update_task(task_id: int, task: TaskUpdate):
     conn = get_db()
-    existing = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM tasks WHERE id = %s;", (task_id,))
+    existing = cursor.fetchone()
+    
     if not existing:
+        cursor.close()
         conn.close()
         raise HTTPException(status_code=404, detail="Task not found")
 
     new_title = task.title if task.title is not None else existing["title"]
-    new_done = int(task.done) if task.done is not None else existing["done"]
+    new_done = task.done if task.done is not None else existing["done"]
 
-    conn.execute("UPDATE tasks SET title = ?, done = ? WHERE id = ?", (new_title, new_done, task_id))
+    cursor.execute(
+        "UPDATE tasks SET title = %s, done = %s WHERE id = %s RETURNING *;",
+        (new_title, new_done, task_id)
+    )
+    updated_row = cursor.fetchone()
     conn.commit()
-
-    updated = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
+    cursor.close()
     conn.close()
-    return format_task(updated)
+    return format_task(updated_row)
 
 @app.delete("/tasks/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_task(task_id: int):
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
+    cursor.execute("DELETE FROM tasks WHERE id = %s;", (task_id,))
     conn.commit()
+    
     if cursor.rowcount == 0:
+        cursor.close()
         conn.close()
         raise HTTPException(status_code=404, detail="Task not found")
+        
+    cursor.close()
     conn.close()
     return None
